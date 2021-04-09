@@ -6,6 +6,7 @@ import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -115,9 +116,13 @@ public class HomesConfig {
     }
 
     public Set<String> getTPointListOf(String playerName) {
-        String dataPrefix = "points." + noDots(playerName);
+        try {
+            String dataPrefix = "points." + noDots(playerName);
 
-        return config.getConfigurationSection(dataPrefix).getKeys(false);
+            return config.getConfigurationSection(dataPrefix).getKeys(false);
+        } catch (NullPointerException e) {
+            return Collections.emptySet();
+        }
     }
 
     private static String noDots(String s) {
