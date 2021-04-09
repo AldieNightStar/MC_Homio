@@ -1,0 +1,15 @@
+main: haxidenti.homio.Main
+name: Homio
+version: 1.0
+author: haxidenti
+api-version: 1.13
+commands:
+  home:
+    description: Teleport to Home
+    usage: /home
+  sethome:
+    description: Set home point
+    usage: /sethome
+  tpoint:
+    description: Set teleport point or teleport to it
+    usage: /tpoint new myPoint <<or>> /tpoint myPoint
