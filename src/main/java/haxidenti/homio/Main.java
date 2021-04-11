@@ -65,7 +65,7 @@ public class Main extends JavaPlugin implements Listener {
                         // ========================================
                         Set<String> tpoints = config.getTPointListOf(player.getName());
 
-                        sender.sendMessage(ChatColor.GRAY + "To create new: " + ChatColor.AQUA + "/tpoint new NAME");
+                        sender.sendMessage(ChatColor.GRAY + "To create/modify: " + ChatColor.AQUA + "/tpoint set NAME");
                         sender.sendMessage(ChatColor.GRAY + "To remove: " + ChatColor.AQUA + "/tpoint rem NAME");
                         sender.sendMessage(ChatColor.GRAY + "To teleport: " + ChatColor.AQUA + "/tpoint tp NAME");
                         sender.sendMessage(ChatColor.GRAY + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(tpoints.size()));
@@ -83,6 +83,11 @@ public class Main extends JavaPlugin implements Listener {
                     String cmd = args[0];
                     String pointName = args[1];
 
+                    if (!isValidName(pointName)) {
+                        sender.sendMessage(ChatColor.RED + "Point name is invalid!");
+                        return true;
+                    }
+
                     if (cmd.equalsIgnoreCase("tp")) {
                         // =================
                         // TP to point
@@ -95,24 +100,36 @@ public class Main extends JavaPlugin implements Listener {
                         player.teleport(location);
                         playTeleportSoundFor(player);
                         return true;
-                    } else if (cmd.equalsIgnoreCase("new")) {
+                    } else if (cmd.equalsIgnoreCase("set")) {
                         // =================
                         // New point
                         // =================
                         int count = config.getTPointListOf(player.getName()).size();
 
-                        int levelRequired = getRequirementMultiplier(count);
-                        int playerLevel = player.getLevel();
-                        if (playerLevel < levelRequired) {
-                            sender.sendMessage(ChatColor.RED + "Level is too low. Required level: " + ChatColor.GREEN + levelRequired);
+                        Location prevPoint = config.getTPointFor(player.getName(), pointName);
 
-                            sender.sendMessage(ChatColor.RED + "Point cannot be set!");
-                        } else {
+                        if (prevPoint == null) {
+                            // ============================
+                            // NEW POINT
+                            // ============================
+                            int levelRequired = getRequirementMultiplier(count);
+                            int playerLevel = player.getLevel();
+                            if (playerLevel < levelRequired) {
+                                sender.sendMessage(ChatColor.RED + "Level is too low. Required level: " + ChatColor.GREEN + levelRequired);
+                                sender.sendMessage(ChatColor.RED + "Point cannot be set!");
+                                return true;
+                            }
                             playerLevel -= levelRequired;
                             player.setLevel(playerLevel);
-
                             config.setTPointFor(player.getName(), pointName, player.getLocation());
                             sender.sendMessage(ChatColor.YELLOW + "New point set!");
+                            return true;
+                        } else {
+                            // ============================
+                            // MODIFY POINT
+                            // ============================
+                            config.setTPointFor(player.getName(), pointName, player.getLocation());
+                            sender.sendMessage(ChatColor.YELLOW + "Point updated!");
                         }
                         return true;
                     } else if (cmd.equalsIgnoreCase("rem")) {
@@ -139,9 +156,15 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     private static int getRequirementMultiplier(int count) {
-        if (count < 2) {
+        if (count < 5) {
             return 0;
         }
-        return count * 2;
+        int mul = (count - 4) * 2;
+        if (mul > 20) mul = 20;
+        return mul;
+    }
+
+    private boolean isValidName(String name) {
+        return name.length() >= 1 && name.length() < 15;
     }
 }
