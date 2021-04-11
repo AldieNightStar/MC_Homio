@@ -1,19 +1,27 @@
 package haxidenti.homio;
 
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public class Main extends JavaPlugin implements Listener {
 
     private HomesConfig config;
+
+    private static final String MAGIC_STICK_PREFIX = ChatColor.YELLOW + "Magic stick: " + ChatColor.GREEN;
 
     @Override
     public void onEnable() {
@@ -68,6 +76,7 @@ public class Main extends JavaPlugin implements Listener {
                         sender.sendMessage(ChatColor.GRAY + "To create/modify: " + ChatColor.AQUA + "/tpoint set NAME");
                         sender.sendMessage(ChatColor.GRAY + "To remove: " + ChatColor.AQUA + "/tpoint rem NAME");
                         sender.sendMessage(ChatColor.GRAY + "To teleport: " + ChatColor.AQUA + "/tpoint tp NAME");
+                        sender.sendMessage(ChatColor.GRAY + "Magic stick: " + ChatColor.AQUA + "/tpoint stick NAME" + ChatColor.GRAY + " or " + ChatColor.AQUA + "/tpoint stick *");
                         sender.sendMessage(ChatColor.GRAY + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(tpoints.size()));
                         sender.sendMessage("");
 
@@ -144,6 +153,52 @@ public class Main extends JavaPlugin implements Listener {
                             sender.sendMessage(ChatColor.RED + "No such point");
                         }
                         return true;
+                    } else if (cmd.equalsIgnoreCase("stick")) {
+                        // =================
+                        // Give magic stick
+                        // =================
+                        PlayerInventory inventory = player.getInventory();
+
+                        ItemStack item = inventory.getItemInMainHand();
+                        if (!item.getType().equals(Material.STICK)) {
+                            sender.sendMessage(ChatColor.RED + "You need to keep STICK in your main hand!");
+                            return true;
+                        }
+
+                        boolean isSingleItem = item.getAmount() == 1;
+
+                        Location loc = config.getTPointFor(player.getName(), pointName);
+                        if (pointName.equals("*")) {
+                            loc = player.getLocation();
+                        }
+                        if (loc == null) {
+                            sender.sendMessage(ChatColor.RED + "No such point!");
+                            return true;
+                        }
+
+                        ItemStack magicStick = new ItemStack(Material.STICK);
+                        {
+                            ItemMeta meta = magicStick.getItemMeta();
+                            if (pointName.equals("*")) {
+                                meta.setDisplayName(MAGIC_STICK_PREFIX + generateLocationString(loc));
+                            } else {
+                                meta.setDisplayName(MAGIC_STICK_PREFIX + pointName);
+                            }
+                            meta.addEnchant(Enchantment.BINDING_CURSE, 1, false);
+                            magicStick.setItemMeta(meta);
+                        }
+
+                        inventory.setItemInMainHand(magicStick);
+                        if (!isSingleItem) {
+                            player.dropItem(true);
+                            item.setAmount(item.getAmount() - 1);
+                            inventory.setItemInMainHand(item);
+                        }
+                        player.updateInventory();
+
+                        sender.sendMessage(ChatColor.YELLOW + "Magic stick is got!");
+
+                        return true;
                     }
                 }
             }
@@ -167,4 +222,55 @@ public class Main extends JavaPlugin implements Listener {
     private boolean isValidName(String name) {
         return name.length() >= 1 && name.length() < 15;
     }
+
+    private Location parseLocationString(String playerName, String positionName) {
+        if (positionName.startsWith("*")) {
+            String[] arr = positionName.substring(1).split(Pattern.quote("|"));
+            if (arr.length != 4) {
+                return null;
+            }
+            try {
+                String worldName = arr[0];
+                int posX = Integer.parseInt(arr[1]);
+                int posY = Integer.parseInt(arr[2]);
+                int posZ = Integer.parseInt(arr[3]);
+
+                return new Location(Bukkit.getWorld(worldName), posX, posY, posZ);
+            } catch (Exception e) {
+                return null;
+            }
+        } else {
+            return config.getTPointFor(playerName, positionName);
+        }
+    }
+
+    private String generateLocationString(Location location) {
+        return "*" + location.getWorld().getName() + "|" + location.getBlockX() + "|" + location.getBlockY() + "|" + location.getBlockZ();
+    }
+
+    @EventHandler
+    public void magicStickEvent(PlayerInteractEvent event) {
+        Action action = event.getAction();
+        Player player = event.getPlayer();
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (!item.getType().equals(Material.STICK)) return;
+        if (action.equals(Action.RIGHT_CLICK_AIR) || action.equals(Action.RIGHT_CLICK_BLOCK)) {
+            ItemMeta meta = item.getItemMeta();
+            if (meta == null) return;
+            String displayName = meta.getDisplayName();
+
+            if (!displayName.startsWith(MAGIC_STICK_PREFIX)) return;
+            String locationString = displayName.substring(MAGIC_STICK_PREFIX.length());
+
+            Location location = parseLocationString(player.getName(), locationString);
+            if (location == null) {
+                player.sendMessage(ChatColor.RED + "Location is undefined for this player or something went wrong!");
+                return;
+            }
+
+            player.teleport(location);
+            playTeleportSoundFor(player);
+        }
+    }
+
 }
