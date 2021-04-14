@@ -1,276 +1,245 @@
-package haxidenti.homio;
+package haxidenti.homio
 
-import org.bukkit.*;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.*
+import org.bukkit.command.Command
+import org.bukkit.command.CommandSender
+import org.bukkit.enchantments.Enchantment
+import org.bukkit.entity.Player
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.event.block.Action
+import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.inventory.ItemStack
+import org.bukkit.plugin.java.JavaPlugin
+import java.util.function.Consumer
+import java.util.regex.Pattern
 
-import java.util.Set;
-import java.util.regex.Pattern;
-
-public class Main extends JavaPlugin implements Listener {
-
-    private HomesConfig config;
-
-    private static final String MAGIC_STICK_PREFIX = ChatColor.YELLOW + "Magic stick: " + ChatColor.GREEN;
-
-    @Override
-    public void onEnable() {
-        getServer().getPluginManager().registerEvents(this, this);
-        config = new HomesConfig(getDataFolder());
-
+class Main : JavaPlugin(), Listener {
+    private var config: HomesConfig? = null
+    override fun onEnable() {
+        server.pluginManager.registerEvents(this, this)
+        config = HomesConfig(dataFolder)
     }
 
-    @Override
-    public void onDisable() {
-        config.save();
+    override fun onDisable() {
+        config!!.save()
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender,
-                             Command command,
-                             String label,
-                             String[] args) {
-        String name = command.getName();
-
-        if (sender instanceof Player) {
-            Player player = (Player) sender;
-
-            if (name.equalsIgnoreCase("home")) {
+    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<String>): Boolean {
+        val name = command.name
+        if (sender is Player) {
+            if (name.equals("home", ignoreCase = true)) {
                 // ====================
                 // HOME Command
                 // ====================
-                Location location = config.getHomeFor(player.getName());
+                val location = config!!.getHomeFor(sender.name)
                 if (location == null) {
-                    sender.sendMessage(ChatColor.RED + "No home!");
-                    return true;
+                    sender.sendMessage(ChatColor.RED.toString() + "No home!")
+                    return true
                 }
-                player.teleport(location);
-                playTeleportSoundFor(player);
-                return true;
-            } else if (name.equalsIgnoreCase("sethome")) {
+                sender.teleport(location)
+                playTeleportSoundFor(sender)
+                return true
+            } else if (name.equals("sethome", ignoreCase = true)) {
                 // ====================
                 // SETHOME Command
                 // ====================
-                Location location = player.getLocation();
-                config.setHomeFor(player.getName(), location);
-                sender.sendMessage(ChatColor.YELLOW + "Welcome to your home!");
-                return true;
-            } else if (name.equalsIgnoreCase("tpoint")) {
-                if (args.length < 2) {
+                val location = sender.location
+                config!!.setHomeFor(sender.name, location)
+                sender.sendMessage(ChatColor.YELLOW.toString() + "Welcome to your home!")
+                return true
+            } else if (name.equals("tpoint", ignoreCase = true)) {
+                if (args.size < 2) {
                     try {
                         // ========================================
                         // Display Help and list of teleport points
                         // ========================================
-                        Set<String> tpoints = config.getTPointListOf(player.getName());
-
-                        sender.sendMessage(ChatColor.GRAY + "To create/modify: " + ChatColor.AQUA + "/tpoint set NAME");
-                        sender.sendMessage(ChatColor.GRAY + "To remove: " + ChatColor.AQUA + "/tpoint rem NAME");
-                        sender.sendMessage(ChatColor.GRAY + "To teleport: " + ChatColor.AQUA + "/tpoint tp NAME");
-                        sender.sendMessage(ChatColor.GRAY + "Magic stick: " + ChatColor.AQUA + "/tpoint stick NAME" + ChatColor.GRAY + " or " + ChatColor.AQUA + "/tpoint stick *");
-                        sender.sendMessage(ChatColor.GRAY + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(tpoints.size()));
-                        sender.sendMessage("");
-
-                        StringBuilder sb = new StringBuilder();
-                        tpoints.forEach(t -> sb.append(t).append(" "));
-
-                        sender.sendMessage(ChatColor.YELLOW + "Teleport Points: " + ChatColor.GREEN + sb.toString());
-
-                        return true;
-                    } catch (Exception ignored) {
+                        val tpoints = config!!.getTPointListOf(sender.name)
+                        sender.sendMessage(ChatColor.GRAY.toString() + "To create/modify: " + ChatColor.AQUA + "/tpoint set NAME")
+                        sender.sendMessage(ChatColor.GRAY.toString() + "To remove: " + ChatColor.AQUA + "/tpoint rem NAME")
+                        sender.sendMessage(ChatColor.GRAY.toString() + "To teleport: " + ChatColor.AQUA + "/tpoint tp NAME")
+                        sender.sendMessage(ChatColor.GRAY.toString() + "Magic stick: " + ChatColor.AQUA + "/tpoint stick NAME" + ChatColor.GRAY + " or " + ChatColor.AQUA + "/tpoint stick *")
+                        sender.sendMessage(
+                            ChatColor.GRAY.toString() + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(
+                                tpoints.size
+                            )
+                        )
+                        sender.sendMessage("")
+                        val sb = StringBuilder()
+                        tpoints.forEach(Consumer { t: String? -> sb.append(t).append(" ") })
+                        sender.sendMessage(ChatColor.YELLOW.toString() + "Teleport Points: " + ChatColor.GREEN + sb.toString())
+                        return true
+                    } catch (ignored: Exception) {
                     }
                 } else {
-                    String cmd = args[0];
-                    String pointName = args[1];
-
+                    val cmd = args[0]
+                    val pointName = args[1]
                     if (!isValidName(pointName)) {
-                        sender.sendMessage(ChatColor.RED + "Point name is invalid!");
-                        return true;
+                        sender.sendMessage(ChatColor.RED.toString() + "Point name is invalid!")
+                        return true
                     }
-
-                    if (cmd.equalsIgnoreCase("tp")) {
+                    if (cmd.equals("tp", ignoreCase = true)) {
                         // =================
                         // TP to point
                         // =================
-                        Location location = config.getTPointFor(player.getName(), pointName);
+                        val location = config!!.getTPointFor(sender.name, pointName)
                         if (location == null) {
-                            sender.sendMessage(ChatColor.RED + "No such point!");
-                            return true;
+                            sender.sendMessage(ChatColor.RED.toString() + "No such point!")
+                            return true
                         }
-                        player.teleport(location);
-                        playTeleportSoundFor(player);
-                        return true;
-                    } else if (cmd.equalsIgnoreCase("set")) {
+                        sender.teleport(location)
+                        playTeleportSoundFor(sender)
+                        return true
+                    } else if (cmd.equals("set", ignoreCase = true)) {
                         // =================
                         // New point
                         // =================
-                        int count = config.getTPointListOf(player.getName()).size();
-
-                        Location prevPoint = config.getTPointFor(player.getName(), pointName);
-
+                        val count = config!!.getTPointListOf(sender.name).size
+                        val prevPoint = config!!.getTPointFor(sender.name, pointName)
                         if (prevPoint == null) {
                             // ============================
                             // NEW POINT
                             // ============================
-                            int levelRequired = getRequirementMultiplier(count);
-                            int playerLevel = player.getLevel();
+                            val levelRequired = getRequirementMultiplier(count)
+                            var playerLevel = sender.level
                             if (playerLevel < levelRequired) {
-                                sender.sendMessage(ChatColor.RED + "Level is too low. Required level: " + ChatColor.GREEN + levelRequired);
-                                sender.sendMessage(ChatColor.RED + "Point cannot be set!");
-                                return true;
+                                sender.sendMessage(ChatColor.RED.toString() + "Level is too low. Required level: " + ChatColor.GREEN + levelRequired)
+                                sender.sendMessage(ChatColor.RED.toString() + "Point cannot be set!")
+                                return true
                             }
-                            playerLevel -= levelRequired;
-                            player.setLevel(playerLevel);
-                            config.setTPointFor(player.getName(), pointName, player.getLocation());
-                            sender.sendMessage(ChatColor.YELLOW + "New point set!");
-                            return true;
+                            playerLevel -= levelRequired
+                            sender.level = playerLevel
+                            config!!.setTPointFor(sender.name, pointName, sender.location)
+                            sender.sendMessage(ChatColor.YELLOW.toString() + "New point set!")
+                            return true
                         } else {
                             // ============================
                             // MODIFY POINT
                             // ============================
-                            config.setTPointFor(player.getName(), pointName, player.getLocation());
-                            sender.sendMessage(ChatColor.YELLOW + "Point updated!");
+                            config!!.setTPointFor(sender.name, pointName, sender.location)
+                            sender.sendMessage(ChatColor.YELLOW.toString() + "Point updated!")
                         }
-                        return true;
-                    } else if (cmd.equalsIgnoreCase("rem")) {
+                        return true
+                    } else if (cmd.equals("rem", ignoreCase = true)) {
                         // =================
                         // Remove point
                         // =================
-                        Location loc = config.getTPointFor(player.getName(), pointName);
+                        val loc = config!!.getTPointFor(sender.name, pointName)
                         if (loc != null) {
-                            config.removeTPointFor(player.getName(), pointName);
-                            sender.sendMessage(ChatColor.YELLOW + "Deleted point!");
+                            config!!.removeTPointFor(sender.name, pointName)
+                            sender.sendMessage(ChatColor.YELLOW.toString() + "Deleted point!")
                         } else {
-                            sender.sendMessage(ChatColor.RED + "No such point");
+                            sender.sendMessage(ChatColor.RED.toString() + "No such point")
                         }
-                        return true;
-                    } else if (cmd.equalsIgnoreCase("stick")) {
+                        return true
+                    } else if (cmd.equals("stick", ignoreCase = true)) {
                         // =================
                         // Give magic stick
                         // =================
-                        PlayerInventory inventory = player.getInventory();
-
-                        ItemStack item = inventory.getItemInMainHand();
-                        if (!item.getType().equals(Material.STICK)) {
-                            sender.sendMessage(ChatColor.RED + "You need to keep STICK in your main hand!");
-                            return true;
+                        val inventory = sender.inventory
+                        val item = inventory.itemInMainHand
+                        if (item.type != Material.STICK) {
+                            sender.sendMessage(ChatColor.RED.toString() + "You need to keep STICK in your main hand!")
+                            return true
                         }
-
-                        boolean isSingleItem = item.getAmount() == 1;
-
-                        Location loc = config.getTPointFor(player.getName(), pointName);
-                        if (pointName.equals("*")) {
-                            loc = player.getLocation();
+                        val isSingleItem = item.amount == 1
+                        var loc = config!!.getTPointFor(sender.name, pointName)
+                        if (pointName == "*") {
+                            loc = sender.location
                         }
                         if (loc == null) {
-                            sender.sendMessage(ChatColor.RED + "No such point!");
-                            return true;
+                            sender.sendMessage(ChatColor.RED.toString() + "No such point!")
+                            return true
                         }
-
-                        ItemStack magicStick = new ItemStack(Material.STICK);
-                        {
-                            ItemMeta meta = magicStick.getItemMeta();
-                            if (pointName.equals("*")) {
-                                meta.setDisplayName(MAGIC_STICK_PREFIX + generateLocationString(loc));
+                        val magicStick = ItemStack(Material.STICK)
+                        run {
+                            val meta = magicStick.itemMeta
+                            if (pointName == "*") {
+                                meta!!.setDisplayName(MAGIC_STICK_PREFIX + generateLocationString(loc))
                             } else {
-                                meta.setDisplayName(MAGIC_STICK_PREFIX + pointName);
+                                meta!!.setDisplayName(MAGIC_STICK_PREFIX + pointName)
                             }
-                            meta.addEnchant(Enchantment.BINDING_CURSE, 1, false);
-                            magicStick.setItemMeta(meta);
+                            meta.addEnchant(Enchantment.BINDING_CURSE, 1, false)
+                            magicStick.setItemMeta(meta)
                         }
-
-                        inventory.setItemInMainHand(magicStick);
+                        inventory.setItemInMainHand(magicStick)
                         if (!isSingleItem) {
-                            player.dropItem(true);
-                            item.setAmount(item.getAmount() - 1);
-                            inventory.setItemInMainHand(item);
+                            sender.dropItem(true)
+                            item.amount = item.amount - 1
+                            inventory.setItemInMainHand(item)
                         }
-                        player.updateInventory();
-
-                        sender.sendMessage(ChatColor.YELLOW + "Magic stick is got!");
-
-                        return true;
+                        sender.updateInventory()
+                        sender.sendMessage(ChatColor.YELLOW.toString() + "Magic stick is got!")
+                        return true
                     }
                 }
             }
         }
-        return false;
+        return false
     }
 
-    private static void playTeleportSoundFor(Player player) {
-        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_SHOOT, 1f, 1f);
+    private fun isValidName(name: String): Boolean {
+        return name.length >= 1 && name.length < 15
     }
 
-    private static int getRequirementMultiplier(int count) {
-        if (count < 5) {
-            return 0;
-        }
-        int mul = (count - 4) * 2;
-        if (mul > 20) mul = 20;
-        return mul;
-    }
-
-    private boolean isValidName(String name) {
-        return name.length() >= 1 && name.length() < 15;
-    }
-
-    private Location parseLocationString(String playerName, String positionName) {
-        if (positionName.startsWith("*")) {
-            String[] arr = positionName.substring(1).split(Pattern.quote("|"));
-            if (arr.length != 4) {
-                return null;
+    private fun parseLocationString(playerName: String, positionName: String): Location? {
+        return if (positionName.startsWith("*")) {
+            val arr = positionName.substring(1).split(Pattern.quote("|")).toTypedArray()
+            if (arr.size != 4) {
+                return null
             }
             try {
-                String worldName = arr[0];
-                int posX = Integer.parseInt(arr[1]);
-                int posY = Integer.parseInt(arr[2]);
-                int posZ = Integer.parseInt(arr[3]);
-
-                return new Location(Bukkit.getWorld(worldName), posX, posY, posZ);
-            } catch (Exception e) {
-                return null;
+                val worldName = arr[0]
+                val posX = arr[1].toInt()
+                val posY = arr[2].toInt()
+                val posZ = arr[3].toInt()
+                Location(Bukkit.getWorld(worldName), posX.toDouble(), posY.toDouble(), posZ.toDouble())
+            } catch (e: Exception) {
+                null
             }
         } else {
-            return config.getTPointFor(playerName, positionName);
+            config!!.getTPointFor(playerName, positionName)
         }
     }
 
-    private String generateLocationString(Location location) {
-        return "*" + location.getWorld().getName() + "|" + location.getBlockX() + "|" + location.getBlockY() + "|" + location.getBlockZ();
+    private fun generateLocationString(location: Location): String {
+        return "*" + location.world!!.name + "|" + location.blockX + "|" + location.blockY + "|" + location.blockZ
     }
 
     @EventHandler
-    public void magicStickEvent(PlayerInteractEvent event) {
-        Action action = event.getAction();
-        Player player = event.getPlayer();
-        ItemStack item = player.getInventory().getItemInMainHand();
-        if (!item.getType().equals(Material.STICK)) return;
-        if (action.equals(Action.RIGHT_CLICK_AIR) || action.equals(Action.RIGHT_CLICK_BLOCK)) {
-            ItemMeta meta = item.getItemMeta();
-            if (meta == null) return;
-            String displayName = meta.getDisplayName();
-
-            if (!displayName.startsWith(MAGIC_STICK_PREFIX)) return;
-            String locationString = displayName.substring(MAGIC_STICK_PREFIX.length());
-
-            Location location = parseLocationString(player.getName(), locationString);
+    fun magicStickEvent(event: PlayerInteractEvent) {
+        val action = event.action
+        val player = event.player
+        val item = player.inventory.itemInMainHand
+        if (item.type != Material.STICK) return
+        if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
+            val meta = item.itemMeta ?: return
+            val displayName = meta.displayName
+            if (!displayName.startsWith(MAGIC_STICK_PREFIX)) return
+            val locationString = displayName.substring(MAGIC_STICK_PREFIX.length)
+            val location = parseLocationString(player.name, locationString)
             if (location == null) {
-                player.sendMessage(ChatColor.RED + "Location is undefined for this player or something went wrong!");
-                return;
+                player.sendMessage(ChatColor.RED.toString() + "Location is undefined for this player or something went wrong!")
+                return
             }
-
-            player.teleport(location);
-            playTeleportSoundFor(player);
+            player.teleport(location)
+            playTeleportSoundFor(player)
         }
     }
 
+    companion object {
+        private val MAGIC_STICK_PREFIX = ChatColor.YELLOW.toString() + "Magic stick: " + ChatColor.GREEN
+        private fun playTeleportSoundFor(player: Player) {
+            player.playSound(player.location, Sound.ENTITY_ENDER_DRAGON_SHOOT, 1f, 1f)
+        }
+
+        private fun getRequirementMultiplier(count: Int): Int {
+            if (count < 5) {
+                return 0
+            }
+            var mul = (count - 4) * 2
+            if (mul > 20) mul = 20
+            return mul
+        }
+    }
 }

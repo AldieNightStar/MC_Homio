@@ -3,6 +3,8 @@ name: Homio
 version: 1.0
 author: haxidenti
 api-version: 1.13
+depend:
+  - Kotlin
 commands:
   home:
     description: Teleport to Home

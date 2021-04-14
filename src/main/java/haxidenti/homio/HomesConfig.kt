@@ -1,132 +1,119 @@
-package haxidenti.homio;
+package haxidenti.homio
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration
+import org.bukkit.World
+import haxidenti.homio.HomesConfig
+import org.bukkit.Bukkit
+import org.bukkit.Location
+import java.io.File
+import java.lang.Exception
+import java.lang.NullPointerException
+import java.lang.RuntimeException
+import java.util.logging.Level
 
-import java.io.File;
-import java.util.Collections;
-import java.util.Set;
-import java.util.logging.Level;
+class HomesConfig(dataFolder: File) {
 
-public class HomesConfig {
-    private YamlConfiguration config;
-    private File dataFolder;
-    private int counter = 10;
+    private val config: YamlConfiguration
+    private val dataFolder: File
+    private var counter = 10
 
-    private static final int maxCounter = 10;
+    fun setHomeFor(name: String, location: Location) {
+        val world = location.world ?: return
+        val playerDataPrefix = "homes." + noDots(name) + "."
+        config[playerDataPrefix + "world"] = world.name
+        config[playerDataPrefix + "x"] = location.blockX
+        config[playerDataPrefix + "y"] = location.blockY
+        config[playerDataPrefix + "z"] = location.blockZ
+        countAndSave()
+    }
 
-    public HomesConfig(File dataFolder) {
+    fun getHomeFor(name: String): Location? {
+        return try {
+            val playerDataPrefix = "homes." + noDots(name) + "."
+            val world = config.getString(playerDataPrefix + "world") ?: return null
+            val x = config.getInt(playerDataPrefix + "x")
+            val y = config.getInt(playerDataPrefix + "y")
+            val z = config.getInt(playerDataPrefix + "z")
+            Location(Bukkit.getWorld(world), x.toDouble(), y.toDouble(), z.toDouble())
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun setTPointFor(playerName: String, pointName: String, location: Location) {
+        try {
+            val dataPrefix = "points." + noDots(playerName) + "." + noDots(pointName) + "."
+            val world = location.world ?: return
+            config[dataPrefix + "world"] = world.name
+            config[dataPrefix + "x"] = location.blockX
+            config[dataPrefix + "y"] = location.blockY
+            config[dataPrefix + "z"] = location.blockZ
+            countAndSave()
+        } catch (ignored: Exception) {
+        }
+    }
+
+    fun getTPointFor(playerName: String, pointName: String): Location? {
+        return try {
+            val dataPrefix = "points." + noDots(playerName) + "." + noDots(pointName) + "."
+            val world = config.getString(dataPrefix + "world") ?: return null
+            val x = config.getInt(dataPrefix + "x")
+            val y = config.getInt(dataPrefix + "y")
+            val z = config.getInt(dataPrefix + "z")
+            Location(Bukkit.getWorld(world), x.toDouble(), y.toDouble(), z.toDouble())
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun removeTPointFor(playerName: String, pointName: String) {
+        try {
+            config["points." + noDots(playerName) + "." + noDots(pointName)] = null
+        } catch (ignored: Exception) {
+        }
+    }
+
+    private fun countAndSave() {
+        counter -= 1
+        if (counter < 0) {
+            counter = maxCounter
+            save()
+        }
+    }
+
+    fun save() {
+        try {
+            config.save(File(dataFolder, "homio.yml"))
+        } catch (e: Exception) {
+            Bukkit.getLogger().log(Level.SEVERE, "Can't save file \"homio.yml\": " + e.message)
+        }
+    }
+
+    fun getTPointListOf(playerName: String): Set<String> {
+        return try {
+            val dataPrefix = "points." + noDots(playerName)
+            config.getConfigurationSection(dataPrefix)!!.getKeys(false)
+        } catch (e: NullPointerException) {
+            emptySet()
+        }
+    }
+
+    companion object {
+
+        private const val maxCounter = 10
+
+        private fun noDots(s: String): String {
+            return s.replace(".", "_")
+        }
+    }
+
+    init {
         if (!dataFolder.exists()) {
             if (!dataFolder.mkdir()) {
-                throw new RuntimeException("Homio config folder did not created successfully!");
+                throw RuntimeException("Homio config folder did not created successfully!")
             }
         }
-        config = YamlConfiguration.loadConfiguration(new File(dataFolder, "homio.yml"));
-        this.dataFolder = dataFolder;
+        config = YamlConfiguration.loadConfiguration(File(dataFolder, "homio.yml"))
+        this.dataFolder = dataFolder
     }
-
-    public void setHomeFor(String name, Location location) {
-        World world = location.getWorld();
-        if (world == null) return;
-
-        String playerDataPrefix = "homes." + noDots(name) + ".";
-
-        config.set(playerDataPrefix + "world", world.getName());
-        config.set(playerDataPrefix + "x", location.getBlockX());
-        config.set(playerDataPrefix + "y", location.getBlockY());
-        config.set(playerDataPrefix + "z", location.getBlockZ());
-
-        countAndSave();
-    }
-
-    public Location getHomeFor(String name) {
-        try {
-            String playerDataPrefix = "homes." + noDots(name) + ".";
-
-            String world = config.getString(playerDataPrefix + "world");
-            if (world == null) return null;
-
-            int x = config.getInt(playerDataPrefix + "x");
-            int y = config.getInt(playerDataPrefix + "y");
-            int z = config.getInt(playerDataPrefix + "z");
-
-            return new Location(Bukkit.getWorld(world), x, y, z);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public void setTPointFor(String playerName, String pointName, Location location) {
-        try {
-            String dataPrefix = "points." + noDots(playerName) + "." + noDots(pointName) + ".";
-
-            World world = location.getWorld();
-            if (world == null) return;
-
-            config.set(dataPrefix + "world", world.getName());
-            config.set(dataPrefix + "x", location.getBlockX());
-            config.set(dataPrefix + "y", location.getBlockY());
-            config.set(dataPrefix + "z", location.getBlockZ());
-
-            countAndSave();
-        } catch (Exception ignored) {
-        }
-    }
-
-    public Location getTPointFor(String playerName, String pointName) {
-        try {
-            String dataPrefix = "points." + noDots(playerName) + "." + noDots(pointName) + ".";
-
-            String world = config.getString(dataPrefix + "world");
-            if (world == null) return null;
-
-            int x = config.getInt(dataPrefix + "x");
-            int y = config.getInt(dataPrefix + "y");
-            int z = config.getInt(dataPrefix + "z");
-
-            return new Location(Bukkit.getWorld(world), x, y, z);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public void removeTPointFor(String playerName, String pointName) {
-        try {
-            config.set("points." + noDots(playerName) + "." + noDots(pointName), null);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void countAndSave() {
-        counter -= 1;
-        if (counter < 0) {
-            counter = maxCounter;
-            save();
-        }
-    }
-
-    public void save() {
-        try {
-            config.save(new File(dataFolder, "homio.yml"));
-        } catch (Exception e) {
-            Bukkit.getLogger().log(Level.SEVERE, "Can't save file \"homio.yml\": " + e.getMessage());
-        }
-    }
-
-    public Set<String> getTPointListOf(String playerName) {
-        try {
-            String dataPrefix = "points." + noDots(playerName);
-
-            return config.getConfigurationSection(dataPrefix).getKeys(false);
-        } catch (NullPointerException e) {
-            return Collections.emptySet();
-        }
-    }
-
-    private static String noDots(String s) {
-        return s.replace(".", "_");
-    }
-
 }
