@@ -184,7 +184,7 @@ class Main : JavaPlugin(), Listener {
 
     private fun parseLocationString(playerName: String, positionName: String): Location? {
         return if (positionName.startsWith("*")) {
-            val arr = positionName.substring(1).split(Pattern.quote("|")).toTypedArray()
+            val arr = positionName.substring(1).split("|")
             if (arr.size != 4) {
                 return null
             }
@@ -193,7 +193,7 @@ class Main : JavaPlugin(), Listener {
                 val posX = arr[1].toInt()
                 val posY = arr[2].toInt()
                 val posZ = arr[3].toInt()
-                Location(Bukkit.getWorld(worldName), posX.toDouble(), posY.toDouble(), posZ.toDouble())
+                return Location(Bukkit.getWorld(worldName), posX.toDouble(), posY.toDouble(), posZ.toDouble())
             } catch (e: Exception) {
                 null
             }
