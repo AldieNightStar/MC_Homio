@@ -12,7 +12,6 @@ import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.function.Consumer
-import java.util.regex.Pattern
 
 class Main : JavaPlugin(), Listener {
     private var config: HomesConfig? = null
@@ -58,11 +57,12 @@ class Main : JavaPlugin(), Listener {
                         sender.sendMessage(ChatColor.GRAY.toString() + "To create/modify: " + ChatColor.AQUA + "/tpoint set NAME")
                         sender.sendMessage(ChatColor.GRAY.toString() + "To remove: " + ChatColor.AQUA + "/tpoint rem NAME")
                         sender.sendMessage(ChatColor.GRAY.toString() + "To teleport: " + ChatColor.AQUA + "/tpoint tp NAME")
-                        sender.sendMessage(ChatColor.GRAY.toString() + "Magic stick: " + ChatColor.AQUA + "/tpoint stick NAME" + ChatColor.GRAY + " or " + ChatColor.AQUA + "/tpoint stick *")
+                        sender.sendMessage(ChatColor.GRAY.toString() + "Magic stick: " + ChatColor.AQUA + "/tpoint stick NAME")
+                        sender.sendMessage(ChatColor.GRAY.toString() + "Magic stick: " + ChatColor.AQUA + "/tpoint stick *NAME")
                         sender.sendMessage(
-                            ChatColor.GRAY.toString() + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(
-                                tpoints.size
-                            )
+                                ChatColor.GRAY.toString() + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(
+                                        tpoints.size
+                                )
                         )
                         sender.sendMessage("")
                         val sb = StringBuilder()
@@ -73,7 +73,7 @@ class Main : JavaPlugin(), Listener {
                     }
                 } else {
                     val cmd = args[0]
-                    val pointName = args[1]
+                    var pointName = args[1]
                     if (!isValidName(pointName)) {
                         sender.sendMessage(ChatColor.RED.toString() + "Point name is invalid!")
                         return true
@@ -134,7 +134,7 @@ class Main : JavaPlugin(), Listener {
                         return true
                     } else if (cmd.equals("stick", ignoreCase = true)) {
                         // =================
-                        // Give magic stick
+                        // Give tpoint stick
                         // =================
                         val inventory = sender.inventory
                         val item = inventory.itemInMainHand
@@ -143,9 +143,11 @@ class Main : JavaPlugin(), Listener {
                             return true
                         }
                         val isSingleItem = item.amount == 1
-                        var loc = config!!.getTPointFor(sender.name, pointName)
-                        if (pointName == "*") {
+                        val loc: Location?
+                        if (pointName.startsWith("*")) {
                             loc = sender.location
+                        } else {
+                            loc = config!!.getTPointFor(sender.name, pointName)
                         }
                         if (loc == null) {
                             sender.sendMessage(ChatColor.RED.toString() + "No such point!")
@@ -153,12 +155,15 @@ class Main : JavaPlugin(), Listener {
                         }
                         val magicStick = ItemStack(Material.STICK)
                         run {
-                            val meta = magicStick.itemMeta
-                            if (pointName == "*") {
-                                meta!!.setDisplayName(MAGIC_STICK_PREFIX + generateLocationString(loc))
-                            } else {
-                                meta!!.setDisplayName(MAGIC_STICK_PREFIX + pointName)
+                            val meta = magicStick.itemMeta!!
+                            if (pointName.startsWith("*")) {
+                                pointName = pointName.substring(1)
+                                if (pointName.isEmpty()) {
+                                    pointName = "Unnamed location"
+                                }
                             }
+                            meta.setDisplayName(TPOINT_STICK_PREFIX + pointName)
+                            meta.lore = mutableListOf(generateLocationString(loc))
                             meta.addEnchant(Enchantment.BINDING_CURSE, 1, false)
                             magicStick.setItemMeta(meta)
                         }
@@ -170,6 +175,7 @@ class Main : JavaPlugin(), Listener {
                         }
                         sender.updateInventory()
                         sender.sendMessage(ChatColor.YELLOW.toString() + "Magic stick is got!")
+                        sender.playSound(sender.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f)
                         return true
                     }
                 }
@@ -182,23 +188,19 @@ class Main : JavaPlugin(), Listener {
         return name.length >= 1 && name.length < 15
     }
 
-    private fun parseLocationString(playerName: String, positionName: String): Location? {
-        return if (positionName.startsWith("*")) {
-            val arr = positionName.substring(1).split("|")
-            if (arr.size != 4) {
-                return null
-            }
-            try {
-                val worldName = arr[0]
-                val posX = arr[1].toInt()
-                val posY = arr[2].toInt()
-                val posZ = arr[3].toInt()
-                return Location(Bukkit.getWorld(worldName), posX.toDouble(), posY.toDouble(), posZ.toDouble())
-            } catch (e: Exception) {
-                null
-            }
-        } else {
-            config!!.getTPointFor(playerName, positionName)
+    private fun parseLocationString(positionName: String): Location? {
+        val arr = positionName.substring(1).split("|")
+        if (arr.size != 4) {
+            return null
+        }
+        return try {
+            val worldName = arr[0]
+            val posX = arr[1].toInt()
+            val posY = arr[2].toInt()
+            val posZ = arr[3].toInt()
+            Location(Bukkit.getWorld(worldName), posX.toDouble(), posY.toDouble(), posZ.toDouble())
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -214,10 +216,10 @@ class Main : JavaPlugin(), Listener {
         if (item.type != Material.STICK) return
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
             val meta = item.itemMeta ?: return
-            val displayName = meta.displayName
-            if (!displayName.startsWith(MAGIC_STICK_PREFIX)) return
-            val locationString = displayName.substring(MAGIC_STICK_PREFIX.length)
-            val location = parseLocationString(player.name, locationString)
+            if (!meta.displayName.startsWith(TPOINT_STICK_PREFIX)) return
+            if (!meta.hasLore()) return
+            val locationString = meta.lore?.get(0) ?: return
+            val location = parseLocationString(locationString)
             if (location == null) {
                 player.sendMessage(ChatColor.RED.toString() + "Location is undefined for this player or something went wrong!")
                 return
@@ -228,7 +230,7 @@ class Main : JavaPlugin(), Listener {
     }
 
     companion object {
-        private val MAGIC_STICK_PREFIX = ChatColor.YELLOW.toString() + "Magic stick: " + ChatColor.GREEN
+        private val TPOINT_STICK_PREFIX = ChatColor.YELLOW.toString() + "TPoint Stick: " + ChatColor.GREEN
         private fun playTeleportSoundFor(player: Player) {
             player.playSound(player.location, Sound.ENTITY_ENDER_DRAGON_SHOOT, 1f, 1f)
         }
