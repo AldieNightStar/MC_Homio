@@ -99,11 +99,11 @@ class HomesConfig(dataFolder: File) {
         }
     }
 
-    fun giveMagicStickFor(player: Player, pointNameStr: String): Boolean {
+    fun giveMagicStickFor(player: Player, pointNameStr: String, free: Boolean): Boolean {
         var pointName = pointNameStr
         val inventory = player.inventory
         val item = inventory.itemInMainHand
-        if (item.type != Material.STICK) {
+        if (!free && item.type != Material.STICK) {
             player.sendMessage(ChatColor.RED.toString() + "You need to keep STICK in your main hand!")
             return true
         }
@@ -132,13 +132,18 @@ class HomesConfig(dataFolder: File) {
             meta.addEnchant(Enchantment.BINDING_CURSE, 1, false)
             magicStick.setItemMeta(meta)
         }
-        inventory.setItemInMainHand(magicStick)
-        if (!isSingleItem) {
-            player.dropItem(true)
-            item.amount = item.amount - 1
-            inventory.setItemInMainHand(item)
+        if (!free) {
+            inventory.setItemInMainHand(magicStick)
+            if (!isSingleItem) {
+                player.dropItem(true)
+                item.amount = item.amount - 1
+                inventory.setItemInMainHand(item)
+            }
+            player.updateInventory()
+        } else {
+            val location = player.location
+            location.world!!.dropItem(location, magicStick)
         }
-        player.updateInventory()
         player.sendMessage(ChatColor.YELLOW.toString() + "Magic stick is got!")
         player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f)
         return true

@@ -133,7 +133,7 @@ class Main : JavaPlugin(), Listener {
                         }
                         return true
                     } else if (cmd.equals("stick", ignoreCase = true)) {
-                        config!!.giveMagicStickFor(sender, pointName)
+                        config!!.giveMagicStickFor(sender, pointName, false)
                     }
                 }
             }
