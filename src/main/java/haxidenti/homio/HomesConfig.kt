@@ -1,10 +1,11 @@
 package haxidenti.homio
 
 import org.bukkit.configuration.file.YamlConfiguration
-import org.bukkit.World
 import haxidenti.homio.HomesConfig
-import org.bukkit.Bukkit
-import org.bukkit.Location
+import org.bukkit.*
+import org.bukkit.enchantments.Enchantment
+import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
 import java.io.File
 import java.lang.Exception
 import java.lang.NullPointerException
@@ -98,12 +99,61 @@ class HomesConfig(dataFolder: File) {
         }
     }
 
+    fun giveMagicStickFor(player: Player, pointNameStr: String): Boolean {
+        var pointName = pointNameStr
+        val inventory = player.inventory
+        val item = inventory.itemInMainHand
+        if (item.type != Material.STICK) {
+            player.sendMessage(ChatColor.RED.toString() + "You need to keep STICK in your main hand!")
+            return true
+        }
+        val isSingleItem = item.amount == 1
+        val loc: Location?
+        if (pointName.startsWith("*")) {
+            loc = player.location
+        } else {
+            loc = getTPointFor(player.name, pointName)
+        }
+        if (loc == null) {
+            player.sendMessage(ChatColor.RED.toString() + "No such point!")
+            return true
+        }
+        val magicStick = ItemStack(Material.STICK)
+        run {
+            val meta = magicStick.itemMeta!!
+            if (pointName.startsWith("*")) {
+                pointName = pointName.substring(1)
+                if (pointName.isEmpty()) {
+                    pointName = "Unnamed location"
+                }
+            }
+            meta.setDisplayName(Main.TPOINT_STICK_PREFIX + pointName)
+            meta.lore = mutableListOf(generateLocationString(loc))
+            meta.addEnchant(Enchantment.BINDING_CURSE, 1, false)
+            magicStick.setItemMeta(meta)
+        }
+        inventory.setItemInMainHand(magicStick)
+        if (!isSingleItem) {
+            player.dropItem(true)
+            item.amount = item.amount - 1
+            inventory.setItemInMainHand(item)
+        }
+        player.updateInventory()
+        player.sendMessage(ChatColor.YELLOW.toString() + "Magic stick is got!")
+        player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f)
+        return true
+    }
+
     companion object {
 
         private const val maxCounter = 10
 
         private fun noDots(s: String): String {
             return s.replace(".", "_")
+        }
+
+        fun generateLocationString(location: Location): String {
+            return "*" + location.world!!.name + "|" + location.blockX + "|" + location.blockY + "|" + location.blockZ
         }
     }
 

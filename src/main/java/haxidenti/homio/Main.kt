@@ -60,9 +60,9 @@ class Main : JavaPlugin(), Listener {
                         sender.sendMessage(ChatColor.GRAY.toString() + "Magic stick: " + ChatColor.AQUA + "/tpoint stick NAME")
                         sender.sendMessage(ChatColor.GRAY.toString() + "Magic stick: " + ChatColor.AQUA + "/tpoint stick *NAME")
                         sender.sendMessage(
-                                ChatColor.GRAY.toString() + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(
-                                        tpoints.size
-                                )
+                            ChatColor.GRAY.toString() + "Next portal LVL cost: " + ChatColor.GOLD + getRequirementMultiplier(
+                                tpoints.size
+                            )
                         )
                         sender.sendMessage("")
                         val sb = StringBuilder()
@@ -133,50 +133,7 @@ class Main : JavaPlugin(), Listener {
                         }
                         return true
                     } else if (cmd.equals("stick", ignoreCase = true)) {
-                        // =================
-                        // Give tpoint stick
-                        // =================
-                        val inventory = sender.inventory
-                        val item = inventory.itemInMainHand
-                        if (item.type != Material.STICK) {
-                            sender.sendMessage(ChatColor.RED.toString() + "You need to keep STICK in your main hand!")
-                            return true
-                        }
-                        val isSingleItem = item.amount == 1
-                        val loc: Location?
-                        if (pointName.startsWith("*")) {
-                            loc = sender.location
-                        } else {
-                            loc = config!!.getTPointFor(sender.name, pointName)
-                        }
-                        if (loc == null) {
-                            sender.sendMessage(ChatColor.RED.toString() + "No such point!")
-                            return true
-                        }
-                        val magicStick = ItemStack(Material.STICK)
-                        run {
-                            val meta = magicStick.itemMeta!!
-                            if (pointName.startsWith("*")) {
-                                pointName = pointName.substring(1)
-                                if (pointName.isEmpty()) {
-                                    pointName = "Unnamed location"
-                                }
-                            }
-                            meta.setDisplayName(TPOINT_STICK_PREFIX + pointName)
-                            meta.lore = mutableListOf(generateLocationString(loc))
-                            meta.addEnchant(Enchantment.BINDING_CURSE, 1, false)
-                            magicStick.setItemMeta(meta)
-                        }
-                        inventory.setItemInMainHand(magicStick)
-                        if (!isSingleItem) {
-                            sender.dropItem(true)
-                            item.amount = item.amount - 1
-                            inventory.setItemInMainHand(item)
-                        }
-                        sender.updateInventory()
-                        sender.sendMessage(ChatColor.YELLOW.toString() + "Magic stick is got!")
-                        sender.playSound(sender.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f)
-                        return true
+                        config!!.giveMagicStickFor(sender, pointName)
                     }
                 }
             }
@@ -204,10 +161,6 @@ class Main : JavaPlugin(), Listener {
         }
     }
 
-    private fun generateLocationString(location: Location): String {
-        return "*" + location.world!!.name + "|" + location.blockX + "|" + location.blockY + "|" + location.blockZ
-    }
-
     @EventHandler
     fun magicStickEvent(event: PlayerInteractEvent) {
         val action = event.action
@@ -230,7 +183,7 @@ class Main : JavaPlugin(), Listener {
     }
 
     companion object {
-        private val TPOINT_STICK_PREFIX = ChatColor.YELLOW.toString() + "TPoint Stick: " + ChatColor.GREEN
+        val TPOINT_STICK_PREFIX = ChatColor.YELLOW.toString() + "TPoint Stick: " + ChatColor.GREEN
         private fun playTeleportSoundFor(player: Player) {
             player.playSound(player.location, Sound.ENTITY_ENDER_DRAGON_SHOOT, 1f, 1f)
         }
