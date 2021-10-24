@@ -14,3 +14,4 @@ commands:
     usage: /sethome
   tpoint:
     description: Set teleport point or teleport to it
+    usage: /tpoint new myPoint <<or>> /tpoint myPoint

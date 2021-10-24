@@ -1,15 +1,15 @@
 package haxidenti.homio
 
 import org.bukkit.*
+import org.bukkit.block.Block
+import org.bukkit.block.Sign
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
-import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
-import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.function.Consumer
 
@@ -177,13 +177,56 @@ class Main : JavaPlugin(), Listener {
                 player.sendMessage(ChatColor.RED.toString() + "Location is undefined for this player or something went wrong!")
                 return
             }
-            player.teleport(location)
-            playTeleportSoundFor(player)
+            // If block is a sign - write coordinates to the sign
+            val sign: Sign? = event.clickedBlock?.asSign()
+            if (sign != null) {
+                // Write coords
+                val lines = sign.lines
+                if (lines.size < 2) {
+                    player.sendMessage(ChatColor.RED.toString() + "Lines should be 2 or more")
+                    return
+                }
+                sign.setLine(0, TPOINT_SIGN_PREFIX + meta.displayName.substring(TPOINT_STICK_PREFIX.length))
+                sign.setLine(1, locationString)
+                sign.update()
+
+                // Play sound
+                player.location.world?.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1F, 1F)
+            } else {
+                player.teleport(location)
+                playTeleportSoundFor(player)
+            }
         }
+    }
+
+    @EventHandler
+    fun magicSignEvent(event: PlayerInteractEvent) {
+        val action = event.action
+        val inventory = event.player.inventory
+        if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
+            val sign = event.clickedBlock?.asSign() ?: return
+            if (sign.lines.size < 2) return
+            if (!sign.lines[0].startsWith(TPOINT_SIGN_PREFIX)) return
+            val location = parseLocationString(sign.lines[1])
+            if (location !== null) {
+                if (inventory.itemInMainHand.type == Material.STICK) return
+                event.player.teleport(location)
+                playTeleportSoundFor(event.player)
+            }
+        }
+    }
+
+    fun Block.asSign(): Sign? {
+        if (state is Sign) {
+            return state as Sign
+        }
+        return null
     }
 
     companion object {
         val TPOINT_STICK_PREFIX = ChatColor.YELLOW.toString() + "TPoint Stick: " + ChatColor.GREEN
+        val TPOINT_SIGN_PREFIX = ChatColor.YELLOW.toString() + "T-Sign: " + ChatColor.GREEN
+
         private fun playTeleportSoundFor(player: Player) {
             player.playSound(player.location, Sound.ENTITY_ENDER_DRAGON_SHOOT, 1f, 1f)
         }
