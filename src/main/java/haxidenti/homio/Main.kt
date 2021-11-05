@@ -179,7 +179,7 @@ class Main : JavaPlugin(), Listener {
             }
             // If block is a sign - write coordinates to the sign
             val sign: Sign? = event.clickedBlock?.asSign()
-            if (sign != null) {
+            if (sign != null && player.isSneaking) {
                 // Write coords
                 val lines = sign.lines
                 if (lines.size < 2) {
